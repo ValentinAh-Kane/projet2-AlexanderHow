@@ -1,0 +1,41 @@
+structures : 
+	Tableau de int
+
+linéarisation des matrices : 
+	Oui, dont B avec les colonnes et lignes permutées afin d'envoyer son découpage comme A, càd "ligne par ligne" plutôt que d'aller chercher tous les i ème éléments de chaque ligne de B pour envoyer sa i ème colonne.
+	Exemple de B 
+	1 1 1 1
+	2 2 2 2
+	3 3 3 3
+	4 4 4 4
+	Permutation colonne/ligne
+	1 2 3 4
+	1 2 3 4
+	1 2 3 4
+	1 2 3 4
+	Stockage en tableau
+	1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 
+
+	Il suffit que chacun ait l'info sur les dimensions de la matrice linéarisée pour retrouver lignes et colonnes dans la version tableau	
+
+communications :
+	Etape 1 : p0 envoie à p1 les dimensions de A et de B, p1 les récupère et les fait suivre à p2 et ainsi de suite jusqu'au dernier p
+	Etape 2 : p0 découpe A en p bouts et se garde le dernier bout (qui, dans le cas où p ne divise pas n, a n/p + n%p lignes) puis il scatter les bouts, en partant de l'avant dernier jusqu'au premier
+		  Ainsi un pi retransmets les bouts p-1-pi fois a pi+1 avant que ça ne soit son bout
+	Etape 3 : p0 découpe B en p bouts de chacun n/p colonnes + 1 bout à n/p + n%p colonnes (cas où p ne divise pas n), puis les envoie tour à tour à p1 qui, pour chaque bout, le transmettra à p2 et fera son calcul avec
+		  Ainsi les bouts de B son pipelinés
+	Etape 4 : Chaque p a fini le calcule de ses n/p lignes de A (dont p0 avec n/p + n%p lignes de A) et a une matrice nxn resultat contenant que des 0 sauf sur les lignes qu'il a calculé, il l'envoie donc au rank i-1 dans l'anneau, le pi-1 somme la matrice résultat qu'il a reçu à la sienne et l'envoie au rank i-2 et ainsi de suite jusqu'à p0 qui fait la dernière somme et aura la matrice résultat finale
+		  Ainsi la matrice résultat est gatherée depuis le dernier p jusqu'à p0 et chaque p y ajoute (à la matrice résultat) ce qu'il a calculé
+
+parallélisé :
+	sommeMatix, multiplication de matrices boutA x boutB parallélisé sur les lignes de A (Une ligne de sousA par processeur à multiplier avec les colonnes de B), remplissage/copy de tableau
+
+fonctionnalitées : 
+	Après tests, mon programme semble ne fonctionner que pour P=N ou P=N-1, dès que les p (à part p0) ont plus d'une ligne de A à traiter j'ai un problème de cohérence dans le résultat final.
+	J'ai fait en sorte de minimiser les fuites mémoire pour la gestion des grandes matrices.
+	Le code est commenté et reprend un peu plus en détail les étapes énoncées précedemment.
+
+autre : 
+	J'ai fait au mieux (à défaut de moi même être parallélisable entre un autre projet en Réseau et les partiels + PSINNOV) mais je n'ai pas réussi à corriger mon problème de cohérence dans le résultat énoncé plus haut.
+	Du coups, outre les quelques débuggages avec les messages d'erreurs incompréhensibles de MPI à cause de petites fautes d'inattention, je ne sais pas d'où vient ce problème (surement dans la zone de calcul de produit sousMatrice x sousMatrice, même si testée à part et à priori fonctionnelle).
+	Si vous n'en tenez pas compte, ce n'est pas grave et ce n'est pas non plus contre vous car votre module était cool, c'était juste pour préciser qu'un projet en même temps que 2 autres projets + des partiels c'est sans doute un peu déprimant et frustrant pour nous.
